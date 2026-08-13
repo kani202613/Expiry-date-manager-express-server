@@ -1,13 +1,16 @@
+const mongoose = require('mongoose');
+
 /**
- * Database connection setup placeholder
+ * Connect to MongoDB database
  */
 const connectDB = async () => {
   try {
-    // Add database connection logic here (e.g., Mongoose / PostgreSQL connection)
-    console.log('Database configuration initialized.');
+    const mongoUri = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/expiry_date_manager';
+    const conn = await mongoose.connect(mongoUri);
+    console.log(`MongoDB Connected: ${conn.connection.host}`);
   } catch (error) {
-    console.error(`Database connection error: ${error.message}`);
-    process.exit(1);
+    console.error(`MongoDB Connection Error: ${error.message}`);
+    // Non-fatal logging to keep server responsive if MongoDB server is offline locally
   }
 };
 
