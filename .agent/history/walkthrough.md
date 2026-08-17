@@ -1,49 +1,40 @@
-# Walkthrough - Implementing Auth APIs - Login & Register
+# Walkthrough - Expiry Date Manager (Express Server)
 
-This document summarizes the implementation of authentication endpoints (`/auth/register` and `/auth/login`), the User Mongoose collection model with hashed passwords, JWT token generation, and Swagger UI documentation.
+Comprehensive walkthrough history for the **Expiry Date Manager** Express backend server.
 
-## Summary of Completed Tasks
-
-### 1. User Collection Model ([models/User.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/models/User.js))
-- Created Mongoose `userSchema` with attributes:
-  - `name` (String, required)
-  - `email` (String, required, unique, lowercase, validated)
-  - `password` (String, required, minlength 6)
+## 1. Mongoose Models & Schemas
+- **User Model (`models/User.js`)**: Mongoose schema storing `name`, `email` (unique, lowercase, validated), and bcrypt-hashed `password`. Includes `matchPassword` method and `pre('save')` encryption middleware.
+- **Item Model (`models/Item.js`)**: Refactored from a plain JS class into a complete Mongoose schema with:
+  - `user`: ObjectId reference to User (required)
+  - `name`: String (required, trimmed)
+  - `category`: Enum (`['Food', 'Medicine', 'Cosmetic', 'Grocery', 'Subscription', 'Utility', 'Other']`, default `'Food'`)
+  - `quantity`: Number (default `1`, min `1`)
+  - `unit`: String (default `'pcs'`)
+  - `expiryDate`: Date (required)
+  - `purchaseDate`: Date
+  - `notes`: String
+  - `status`: Enum (`['active', 'consumed', 'discarded']`, default `'active'`)
   - Timestamps (`createdAt`, `updatedAt`)
-- Implemented `pre('save')` hook using `bcryptjs` for password hashing.
-- **Fixed Mongoose 7/8 async pre-save hook**: Removed `next` callback parameter from `async function ()` to resolve `TypeError: next is not a function`.
-- Implemented `matchPassword(enteredPassword)` instance method for secure password comparison.
+  - Compound indexes on `{ user: 1, expiryDate: 1 }` and `{ user: 1, category: 1 }`.
 
-### 2. Auth Controllers ([controllers/authController.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/controllers/authController.js))
-- **`registerUser`**:
-  - Validates required fields (`name`, `email`, `password`).
-  - Checks if user with provided email already exists (returns HTTP 400).
-  - Creates user in database and signs a JWT token (`expiresIn: 30d`).
-  - Returns HTTP 201 Created with user info (without password) and `token`.
-- **`loginUser`**:
-  - Validates `email` and `password`.
-  - Verifies credentials using `user.matchPassword()`.
-  - Returns HTTP 200 OK with user info and `token` if valid, or HTTP 401 Unauthorized if invalid.
+## 2. Authentication Middleware
+- **Auth Protection (`middleware/authMiddleware.js`)**: `protect` middleware verifying Bearer JWT tokens in `Authorization` header, looking up active user by ID (excluding password field), and attaching `req.user`.
 
-### 3. Auth Routes & Endpoint Mapping ([routes/authRoutes.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/routes/authRoutes.js))
-- Mounted on both `/auth` and `/api/auth` in [server.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/server.js):
-  - `POST /auth/register`
-  - `POST /auth/login`
+## 3. RESTful API Controllers & Routes
+- **Auth Routes (`controllers/authController.js`, `routes/authRoutes.js`)**:
+  - `POST /api/auth/register`: Validates inputs, checks duplicate email, creates user, generates JWT token.
+  - `POST /api/auth/login`: Authenticates credentials, verifies hashed password, returns user info and JWT token.
+- **Item Routes (`controllers/itemController.js`, `routes/itemRoutes.js`)**:
+  - `GET /api/items`: Fetches user items with query filters (`category`, `status`, `search` regex match on name or notes, `filterType` for `expiringSoon` or `expired`), and sorting (`expiryDate`, `name`, `createdAt`).
+  - `GET /api/items/stats/summary`: Calculates quick counters for active, expiring soon (<7 days), expired, and consumed items.
+  - `GET /api/items/:id`: Returns item details if owned by user.
+  - `POST /api/items`: Validates required fields (`name`, `expiryDate`) and creates new item linked to user.
+  - `PUT /api/items/:id`: Updates fields of an existing item owned by user.
+  - `DELETE /api/items/:id`: Deletes item if owned by user.
 
-### 4. JWT Authentication Middleware ([middleware/authMiddleware.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/middleware/authMiddleware.js))
-- Created `protect` middleware to verify Bearer tokens from `Authorization` header (`Authorization: Bearer <token>`).
+## 4. Swagger OpenAPI Documentation
+- Configured Swagger UI in `config/swagger.js` and annotated `routes/itemRoutes.js` and `routes/authRoutes.js`.
+- Available interactively at `http://localhost:5001/api-docs`.
 
-### 5. Interactive Swagger Documentation ([config/swagger.js](file:///c:/Users/kanis/OneDrive/Desktop/Expiry%20date%20Manager/expiry-date-express-server/config/swagger.js))
-- Integrated `swagger-ui-express` and `swagger-jsdoc`.
-- Fixed Windows glob path parsing issue (`.replace(/\\/g, '/')`) so Swagger JSDoc scans routes correctly.
-- Served at **`http://localhost:5001/api-docs`** (and `/api-docs.json`).
-- Includes operations for `/auth/register` and `/auth/login`, request body schemas (`RegisterInput`, `LoginInput`), and response schemas (`AuthResponse`, `ErrorResponse`).
-
----
-
-## Verification & Code Quality
-
-- All dependencies installed (`mongoose`, `bcryptjs`, `jsonwebtoken`, `swagger-ui-express`, `swagger-jsdoc`).
-- Verified Swagger path discovery: output confirmed `['/auth/register', '/auth/login']`.
-- Verified Mongoose async pre-save password hashing hook.
-- Followed clean modular folder structure (`config/`, `controllers/`, `middleware/`, `models/`, `routes/`, `utils/`, `server.js`).
+## 5. Verification
+- Verified Node server loading: `server.js` starts cleanly and connects to MongoDB (`mongodb://127.0.0.1:27017/expiry_date_manager`).
