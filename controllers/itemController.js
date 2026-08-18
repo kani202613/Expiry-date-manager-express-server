@@ -54,22 +54,26 @@ const getItems = async (req, res, next) => {
 
     // Expiry date range filters (Use-Case 1 & 4)
     const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const range = expiryRange || filterType;
 
     if (range === '1month' || range === 'within1Month') {
-      const oneMonthLater = new Date();
-      oneMonthLater.setMonth(now.getMonth() + 1);
-      query.expiryDate = { $gte: now, $lte: oneMonthLater };
+      const oneMonthLater = new Date(startOfToday);
+      oneMonthLater.setMonth(startOfToday.getMonth() + 1);
+      oneMonthLater.setHours(23, 59, 59, 999);
+      query.expiryDate = { $gte: startOfToday, $lte: oneMonthLater };
     } else if (range === '3months' || range === 'within3Months') {
-      const threeMonthsLater = new Date();
-      threeMonthsLater.setMonth(now.getMonth() + 3);
-      query.expiryDate = { $gte: now, $lte: threeMonthsLater };
+      const threeMonthsLater = new Date(startOfToday);
+      threeMonthsLater.setMonth(startOfToday.getMonth() + 3);
+      threeMonthsLater.setHours(23, 59, 59, 999);
+      query.expiryDate = { $gte: startOfToday, $lte: threeMonthsLater };
     } else if (range === '7days' || range === 'expiringSoon') {
-      const sevenDaysLater = new Date();
-      sevenDaysLater.setDate(now.getDate() + 7);
-      query.expiryDate = { $gte: now, $lte: sevenDaysLater };
+      const sevenDaysLater = new Date(startOfToday);
+      sevenDaysLater.setDate(startOfToday.getDate() + 7);
+      sevenDaysLater.setHours(23, 59, 59, 999);
+      query.expiryDate = { $gte: startOfToday, $lte: sevenDaysLater };
     } else if (range === 'expired') {
-      query.expiryDate = { $lt: now };
+      query.expiryDate = { $lt: startOfToday };
     }
 
     // Sorting (Default: products nearing expiry first)
@@ -113,35 +117,53 @@ const getItemStats = async (req, res, next) => {
   try {
     const userId = req.user._id;
     const now = new Date();
-    
-    const oneMonthLater = new Date();
-    oneMonthLater.setMonth(now.getMonth() + 1);
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
-    const threeMonthsLater = new Date();
-    threeMonthsLater.setMonth(now.getMonth() + 3);
+    const sevenDaysLater = new Date(startOfToday);
+    sevenDaysLater.setDate(startOfToday.getDate() + 7);
+    sevenDaysLater.setHours(23, 59, 59, 999);
+
+    const oneMonthLater = new Date(startOfToday);
+    oneMonthLater.setMonth(startOfToday.getMonth() + 1);
+    oneMonthLater.setHours(23, 59, 59, 999);
+
+    const threeMonthsLater = new Date(startOfToday);
+    threeMonthsLater.setMonth(startOfToday.getMonth() + 3);
+    threeMonthsLater.setHours(23, 59, 59, 999);
 
     const totalActive = await Item.countDocuments({ user: userId, status: 'active' });
+    
+    const expiringSoon = await Item.countDocuments({
+      user: userId,
+      status: 'active',
+      expiryDate: { $gte: startOfToday, $lte: sevenDaysLater }
+    });
+
     const expiringWithin1Month = await Item.countDocuments({
       user: userId,
       status: 'active',
-      expiryDate: { $gte: now, $lte: oneMonthLater }
+      expiryDate: { $gte: startOfToday, $lte: oneMonthLater }
     });
+
     const expiringWithin3Months = await Item.countDocuments({
       user: userId,
       status: 'active',
-      expiryDate: { $gte: now, $lte: threeMonthsLater }
+      expiryDate: { $gte: startOfToday, $lte: threeMonthsLater }
     });
+
     const expired = await Item.countDocuments({
       user: userId,
       status: 'active',
-      expiryDate: { $lt: now }
+      expiryDate: { $lt: startOfToday }
     });
+
     const consumed = await Item.countDocuments({ user: userId, status: 'consumed' });
 
     res.status(200).json({
       success: true,
       data: {
         totalActive,
+        expiringSoon,
         expiringWithin1Month,
         expiringWithin3Months,
         expired,
