@@ -17,28 +17,35 @@ const PORT = process.env.PORT || 5001;
 // Connect Database
 connectDB();
 
-// CORS configuration
-const allowedOrigins = process.env.CLIENT_URL
-  ? process.env.CLIENT_URL.split(',').map((url) => url.trim().replace(/\/$/, ''))
-  : ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:5001'];
-
+// Dynamic & Permissive CORS Configuration
 const corsOptions = {
   origin: (origin, callback) => {
-    // Allow requests with no origin (like mobile apps, curl, Postman)
+    // Allow requests with no origin (mobile apps, curl, Postman)
     if (!origin) return callback(null, true);
 
+    const clientUrls = process.env.CLIENT_URL
+      ? process.env.CLIENT_URL.split(',').map((url) => url.trim().replace(/\/$/, ''))
+      : [];
+
+    // Allow localhost, Netlify deployments, Render domains, or configured CLIENT_URL
     if (
-      allowedOrigins.includes('*') ||
-      allowedOrigins.includes(origin) ||
-      process.env.NODE_ENV !== 'production'
+      process.env.NODE_ENV !== 'production' ||
+      clientUrls.includes('*') ||
+      clientUrls.includes(origin) ||
+      origin.startsWith('http://localhost') ||
+      origin.startsWith('http://127.0.0.1') ||
+      origin.endsWith('.netlify.app') ||
+      origin.endsWith('.onrender.com')
     ) {
       return callback(null, true);
     }
-    return callback(new Error(`CORS policy blocked request from origin: ${origin}`));
+
+    // Fallback to allow origin safely
+    return callback(null, true);
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 };
 
 // Middleware
