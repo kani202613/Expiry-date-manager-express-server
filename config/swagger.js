@@ -15,6 +15,10 @@ const options = {
     },
     servers: [
       {
+        url: process.env.SERVER_URL || '/',
+        description: process.env.NODE_ENV === 'production' ? 'Production Server' : 'Primary Server'
+      },
+      {
         url: 'http://localhost:5001',
         description: 'Local Development Server'
       }
