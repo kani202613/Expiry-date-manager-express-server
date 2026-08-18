@@ -11,6 +11,9 @@ const connectDB = async () => {
       mongoUri = mongoUri.replace(/^MONGO_URI=/, '').trim();
     }
 
+    // Strip accidental angle brackets <> around password if present (e.g. :<password>@ -> :password@)
+    mongoUri = mongoUri.replace(/(mongodb(?:\+srv)?:\/\/[^:]+:)<([^>]+)>(@)/i, '$1$2$3');
+
     const sanitizedUri = mongoUri.replace(/\/\/(.*):(.*)@/, '//***:***@');
     console.log(`Connecting to MongoDB at: ${sanitizedUri}`);
 
