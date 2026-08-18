@@ -64,13 +64,12 @@ const itemSchema = new mongoose.Schema(
 );
 
 // Pre-save middleware to synchronize title and name
-itemSchema.pre('save', function (next) {
+itemSchema.pre('save', function () {
   if (this.title && !this.name) {
     this.name = this.title;
   } else if (this.name && !this.title) {
     this.title = this.name;
   }
-  next();
 });
 
 // Optimized Compound Indexes for Use-Cases
